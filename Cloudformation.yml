@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description:  Cloud formation file for the generation of EC2 instance for playing minecraft  
+Resources: 
+  NewKeyPair:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: MyKeyPair
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: vpc-0cd2157ad004f05d5
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 25565
+          ToPort: 25565
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+  minecraftEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref NewKeyPair
+      DisableApiTermination: false
+      ImageId:  ami-0b32f28c087a5087a 
+      InstanceType: t4g.small	
+      Monitoring: true
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet: 
+            - Ref: InstanceSecurityGroup
+      UserData: 
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -ex
+            wget --no-check-certificate -c --header "Cookie: oraclelicense=accept-securebackup-cookie" https://download.oracle.com/java/17/archive/jdk-17.0.8_linux-aarch64_bin.rpm
+            sudo rpm -Uvh jdk-17.0.8_linux-aarch64_bin.rpm
+            yum install screen
+            sudo adduser minecraft
+            sudo su
+            mkdir /opt/minecraft/ 
+            mkdir /opt/minecraft/server/
+            cd /opt/minecraft/server
+            wget https://piston-data.mojang.com/v1/objects/84194a2f286ef7c14ed7ce0090dba59902951553/server.jar
+            sudo chown -R minecraft:minecraft /opt/minecraft/
+            java -Xmx1024M -Xms1024M -Dcom.mojang.eula.agree=true -jar server.jar nogui || command_failed=1
+            sed -i 's/false/true/g' eula.txt 
+            sed -i 's/online-mode=true/online-mode=false/g' server.properties
+            
+            java -Xmx1024M -Xms1024M -Dcom.mojang.eula.agree=true -jar server.jar nogui
+      Tags:
+        - Key: minecraft
+          Value: desa
