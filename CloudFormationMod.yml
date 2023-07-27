@@ -1,0 +1,58 @@
+Description:  Cloud formation file for the generation of EC2 instance for playing minecraft  
+Resources: 
+  NewKeyPair:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: MyKeyPair
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: vpc-0cd2157ad004f05d5
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 25565
+          ToPort: 25565
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+  minecraftEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref NewKeyPair
+      DisableApiTermination: false
+      ImageId:  ami-0b32f28c087a5087a 
+      InstanceType: t4g.small	
+      Monitoring: true
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet: 
+            - Ref: InstanceSecurityGroup
+      UserData: 
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -ex
+            sudo dnf install -y java-1.8.0-amazon-corretto
+            #sudo dnf install -y java-1.8.0-amazon-corretto-devel
+            sudo yum install unzip
+            sudo adduser minecraft
+            sudo su
+            mkdir /opt/minecraft/ 
+            mkdir /opt/minecraft/server/
+            cd /opt/minecraft/server
+            wget https://mediafilez.forgecdn.net/files/4653/48/RAD2-Serverpack-1.5.zip
+            unzip RAD2-Serverpack-1.5.zip
+            cd ./RAD2-Serverpack-1.5
+            sudo chown -R minecraft:minecraft /opt/minecraft/
+            sed -i 's/false/true/g' eula.txt 
+            sed -i 's/online-mode=true/online-mode=false/g' server.properties
+            java -Xmx1024M -Xms1024M  -XX:PermSize=256m -jar forge-1.16.5-36.2.39.jar nogui
+      Tags:
+        - Key: minecraft
+          Value: desa
