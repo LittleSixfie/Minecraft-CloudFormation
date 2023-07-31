@@ -27,7 +27,7 @@ Resources:
       KeyName: !Ref NewKeyPair
       DisableApiTermination: false
       ImageId:  ami-0b32f28c087a5087a 
-      InstanceType: t4g.small	
+      InstanceType: t4g.medium	
       Monitoring: true
       NetworkInterfaces: 
         - AssociatePublicIpAddress: "true"
@@ -52,7 +52,11 @@ Resources:
             sudo chown -R minecraft:minecraft /opt/minecraft/
             sed -i 's/false/true/g' eula.txt 
             sed -i 's/online-mode=true/online-mode=false/g' server.properties
-            java -Xmx1024M -Xms1024M  -XX:PermSize=256m -jar forge-1.16.5-36.2.39.jar nogui
+            java -Xmx3000M -Xms3000M  -XX:PermSize=3000m -jar forge-1.16.5-36.2.39.jar nogui
       Tags:
         - Key: minecraft
           Value: desa
+Outputs:
+  StackKey:
+    Description: keypair
+    Value: !Ref NewKeyPair

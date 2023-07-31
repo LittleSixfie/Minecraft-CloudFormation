@@ -1,5 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description:  Cloud formation file for the generation of EC2 instance for playing minecraft  
+Description:  Cloud formation file for the generation of EC2 instance for playing minecraft 
+Parameters:
+  InstaceTypeParameter:
+    Type: String
+    Default: t4g.small
+    AllowedValues:
+      - t2.small
+      - t4g.small
+      - t3.small
 Resources: 
   NewKeyPair:
     Type: 'AWS::EC2::KeyPair'
@@ -28,7 +36,8 @@ Resources:
       KeyName: !Ref NewKeyPair
       DisableApiTermination: false
       ImageId:  ami-0b32f28c087a5087a 
-      InstanceType: t4g.small	
+      InstanceType: 
+        Ref: InstaceTypeParameter
       Monitoring: true
       NetworkInterfaces: 
         - AssociatePublicIpAddress: "true"
@@ -57,3 +66,7 @@ Resources:
       Tags:
         - Key: minecraft
           Value: desa
+Outputs:
+  InstanceID:
+    Description: EC2 Cosas
+    Value: !GetAtt minecraftEC2.PublicDnsName
