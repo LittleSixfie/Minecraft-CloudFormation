@@ -1,23 +1,75 @@
-AWSTemplateFormatVersion: 2010-09-09
 Description:  Cloud formation file for the generation of EC2 instance for playing minecraft 
 Parameters:
   InstaceTypeParameter:
     Type: String
-    Default: t4g.small
+    Default: t2.small
     AllowedValues:
       - t2.small
-      - t4g.small
+      - t2.medium
       - t3.small
 Resources: 
   NewKeyPair:
     Type: 'AWS::EC2::KeyPair'
     Properties:
       KeyName: MyKeyPair
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 20.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+      - Key: minecraft
+        Value: cloudformation
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: myVPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref myVPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 20.0.10.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs ]          
+      Tags:
+      - Key: minecraft
+        Value: !Sub ${AWS::StackName}-Public-A
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myVPC
+      Tags:
+      - Key: minecraft
+        Value: Public
+  PublicRoute1:  
+      Type: AWS::EC2::Route
+      DependsOn: AttachGateway
+      Properties:
+        RouteTableId: !Ref PublicRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref InternetGateway
+  PublicSubnetARouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref PublicSubnetA
+        RouteTableId: !Ref PublicRouteTable
   InstanceSecurityGroup:
+    DependsOn: 
+     - myVPC
+     - PublicSubnetARouteTableAssociation
+     - PublicRoute1
+     - PublicRouteTable
+     - PublicSubnetA
+     - AttachGateway
+     - InternetGateway
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow http to client host
-      VpcId: vpc-0cd2157ad004f05d5
+      VpcId: !Ref myVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
@@ -35,7 +87,7 @@ Resources:
     Properties:
       KeyName: !Ref NewKeyPair
       DisableApiTermination: false
-      ImageId:  ami-0b32f28c087a5087a 
+      ImageId:  ami-0e00e602389e469a3
       InstanceType: 
         Ref: InstaceTypeParameter
       Monitoring: true
@@ -44,12 +96,14 @@ Resources:
           DeviceIndex: "0"
           GroupSet: 
             - Ref: InstanceSecurityGroup
+          SubnetId: 
+            Ref: PublicSubnetA
       UserData: 
         Fn::Base64:
           !Sub |
             #!/bin/bash -ex
-            wget --no-check-certificate -c --header "Cookie: oraclelicense=accept-securebackup-cookie" https://download.oracle.com/java/17/archive/jdk-17.0.8_linux-aarch64_bin.rpm
-            sudo rpm -Uvh jdk-17.0.8_linux-aarch64_bin.rpm
+            wget --no-check-certificate -c --header "Cookie: oraclelicense=accept-securebackup-cookie" https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.rpm
+            sudo rpm -Uvh jdk-17_linux-x64_bin.rpm
             yum install screen
             sudo adduser minecraft
             sudo su
@@ -66,7 +120,39 @@ Resources:
       Tags:
         - Key: minecraft
           Value: desa
+  iamUser:
+    DependsOn: minecraftEC2
+    Type: AWS::IAM::User
+    Properties:
+      UserName: UserForStartEc2 
+      Policies: 
+        - PolicyName: StartEc2
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - ec2:StartInstances
+              - ec2:StopInstances
+              Resource: '*'
+  myaccesskey:
+    DependsOn: iamUser
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        !Ref iamUser
 Outputs:
-  InstanceID:
-    Description: EC2 Cosas
+  DireccionMaquina:
+    Description: EC2 Direccion pal server!
     Value: !GetAtt minecraftEC2.PublicDnsName
+  MaquinaID:
+    Description: EC2 ID maquina
+    Value: !Ref minecraftEC2
+  VpcId: 
+    Description: ID del VPC
+    Value: !GetAtt myVPC.VpcId
+  AccessKeyformyaccesskey:
+    Value:
+      !Ref myaccesskey
+  SecretKeyformyaccesskey:
+    Value: !GetAtt myaccesskey.SecretAccessKey

@@ -4,11 +4,58 @@ Resources:
     Type: 'AWS::EC2::KeyPair'
     Properties:
       KeyName: MyKeyPair
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 20.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+      - Key: minecraft
+        Value: cloudformation
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: myVPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    # Notice how you can't attach an IGW to a VPC unless both are created:
+    Properties:
+      VpcId: !Ref myVPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 20.0.10.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list        
+      Tags:
+      - Key: minecraft
+        Value: !Sub ${AWS::StackName}-Public-A
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myVPC
+      Tags:
+      - Key: minecraft
+        Value: Public
+  PublicRoute1:   # Public route table has direct routing to IGW:
+      Type: AWS::EC2::Route
+      DependsOn: AttachGateway
+      Properties:
+        RouteTableId: !Ref PublicRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref InternetGateway
+  PublicSubnetARouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref PublicSubnetA
+        RouteTableId: !Ref PublicRouteTable
   InstanceSecurityGroup:
+    DependsOn: myVPC
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow http to client host
-      VpcId: vpc-0cd2157ad004f05d5
+      VpcId: !Ref myVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
@@ -22,6 +69,7 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
   minecraftEC2:
+    DependsOn: InstanceSecurityGroup
     Type: AWS::EC2::Instance
     Properties:
       KeyName: !Ref NewKeyPair
@@ -34,6 +82,8 @@ Resources:
           DeviceIndex: "0"
           GroupSet: 
             - Ref: InstanceSecurityGroup
+          SubnetId: 
+            Ref: PublicSubnetA
       UserData: 
         Fn::Base64:
           !Sub |
@@ -55,7 +105,7 @@ Resources:
             java -Xmx3000M -Xms3000M  -XX:PermSize=3000m -jar forge-1.16.5-36.2.39.jar nogui
       Tags:
         - Key: minecraft
-          Value: desa
+          Value: cloudformation
 Outputs:
   StackKey:
     Description: keypair
