@@ -156,3 +156,5 @@ Outputs:
       !Ref myaccesskey
   SecretKeyformyaccesskey:
     Value: !GetAtt myaccesskey.SecretAccessKey
+#aws cloudformation describe-stacks --stack-name Minecraft --query "Stacks[0].Outputs"
+#aws cloudformation create-stack --stack-name Minecraft --template-body file://Cloudformation.yml --capabilities CAPABILITY_NAMED_IAM
