@@ -1,7 +1,7 @@
 #!/bin/bash
 if [[ $# -ne 4 ]]
 then
-    echo "Recuerda que se necesita, el AccessID, AccessKey, Idmaquina, start or stop"
+    echo "Remember you need: the AccessID, AccessKey, Id of the machine and start or stop"
     exit -1
 fi
 
